@@ -12,12 +12,80 @@ export default function Home() {
   });
   const [listings, setListings] = useState([]);
   const [filteredListings, setFilteredListings] = useState([]);
+  const [featuredListings, setFeaturedListings] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadListings();
+  }, []);
+
+  const loadListings = async () => {
+    try {
+      const response = await api.get('/listings');
+      const allListings = response.data.listings || [];
+      setListings(allListings);
+      setFilteredListings(allListings);
+      // Set first 8 as featured
+      setFeaturedListings(allListings.slice(0, 8));
+    } catch (error) {
+      console.error('Error loading listings:', error);
+      setListings([]);
+      setFilteredListings([]);
+      setFeaturedListings([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSearch = (e) => {
     e.preventDefault();
-    const params = new URLSearchParams(searchData).toString();
-    navigate(`/listings?${params}`);
+    applyFilters();
+  };
+
+  const applyFilters = () => {
+    let filtered = [...listings];
+
+    if (searchData.location) {
+      filtered = filtered.filter(listing => 
+        listing.location.city.toLowerCase().includes(searchData.location.toLowerCase()) ||
+        listing.location.area.toLowerCase().includes(searchData.location.toLowerCase())
+      );
+    }
+
+    if (searchData.roomType) {
+      filtered = filtered.filter(listing => listing.type === searchData.roomType);
+    }
+
+    if (searchData.budget) {
+      filtered = filtered.filter(listing => listing.price <= parseInt(searchData.budget));
+    }
+
+    setFilteredListings(filtered);
+
+    // Scroll to listings section
+    document.getElementById('listings-section')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const handleListingClick = (listingId) => {
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    if (token) {
+      navigate(`/listings/${listingId}`);
+    } else {
+      // Store intended destination and redirect to login
+      localStorage.setItem('redirectAfterLogin', `/listings/${listingId}`);
+      navigate('/login');
+    }
+  };
+
+  const handleFavorite = (listingId) => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      localStorage.setItem('redirectAfterLogin', '/');
+      navigate('/login');
+      return;
+    }
+    // Will implement favorite logic when logged in
   };
 
   const features = [
@@ -43,25 +111,32 @@ export default function Home() {
     }
   ];
 
-  
+  const cities = [
+    { name: 'Mumbai', count: '2500+ Rooms', image: 'https://images.unsplash.com/photo-1567157577867-05ccb1388e66?w=500' },
+    { name: 'Delhi', count: '3200+ Rooms', image: 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=500' },
+    { name: 'Bangalore', count: '4100+ Rooms', image: 'https://images.unsplash.com/photo-1596176530529-78163a4f7af2?w=500' },
+    { name: 'Hyderabad', count: '1800+ Rooms', image: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=500' },
+    { name: 'Pune', count: '2100+ Rooms', image: 'https://images.unsplash.com/photo-1595658658481-d53d3f999875?w=500' },
+    { name: 'Chennai', count: '1500+ Rooms', image: 'https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=500' }
+  ];
 
   const testimonials = [
     {
-      name: 'Gouravi Nayak',
+      name: 'Priya Sharma',
       role: 'Software Engineer',
       image: 'https://randomuser.me/api/portraits/women/1.jpg',
       text: 'Found my perfect PG in just 2 days! The verification process made me feel safe and the room was exactly as shown in pictures.',
       rating: 5
     },
     {
-      name: 'Nikhil Majukar',
+      name: 'Rahul Verma',
       role: 'Student',
       image: 'https://randomuser.me/api/portraits/men/1.jpg',
       text: 'Amazing platform! The owner was responsive and the booking process was super smooth. Highly recommended for students.',
       rating: 5
     },
     {
-      name: 'Anjaneya Desai',
+      name: 'Anita Desai',
       role: 'Marketing Professional',
       image: 'https://randomuser.me/api/portraits/women/2.jpg',
       text: 'Best decision to use RoomEase. The customer support is excellent and I got exactly what I was looking for.',
@@ -234,6 +309,155 @@ export default function Home() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Featured Listings Section */}
+      <section id="listings-section" className="py-20 bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h2 className="text-4xl font-bold text-gray-900 mb-2">
+                {searchData.location || searchData.roomType || searchData.budget ? 'Search Results' : 'Featured Listings'}
+              </h2>
+              <p className="text-xl text-gray-600">
+                {filteredListings.length} properties available
+              </p>
+            </div>
+            <div className="flex gap-4">
+              <select
+                value={searchData.roomType}
+                onChange={(e) => {
+                  setSearchData({ ...searchData, roomType: e.target.value });
+                  setTimeout(applyFilters, 0);
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-700 focus:border-transparent bg-white"
+              >
+                <option value="">All Types</option>
+                <option value="single">Single Room</option>
+                <option value="shared">Shared Room</option>
+                <option value="pg">PG</option>
+                <option value="hostel">Hostel</option>
+              </select>
+              <select
+                value={searchData.budget}
+                onChange={(e) => {
+                  setSearchData({ ...searchData, budget: e.target.value });
+                  setTimeout(applyFilters, 0);
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-700 focus:border-transparent bg-white"
+              >
+                <option value="">All Budgets</option>
+                <option value="5000">Under ₹5,000</option>
+                <option value="10000">Under ₹10,000</option>
+                <option value="15000">Under ₹15,000</option>
+                <option value="20000">Under ₹20,000</option>
+              </select>
+            </div>
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="flex flex-col items-center gap-4">
+                <div className="w-16 h-16 border-4 border-teal-700 border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-gray-600">Loading amazing properties...</p>
+              </div>
+            </div>
+          ) : filteredListings.length > 0 ? (
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {filteredListings.map((listing) => (
+                <div
+                  key={listing._id}
+                  className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 cursor-pointer group"
+                >
+                  <div className="relative">
+                    <img
+                      src={listing.images[0]?.url || 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=500'}
+                      alt={listing.title}
+                      className="w-full h-48 object-cover group-hover:scale-110 transition duration-500"
+                      onClick={() => handleListingClick(listing._id)}
+                    />
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleFavorite(listing._id);
+                      }}
+                      className="absolute top-3 right-3 bg-white p-2 rounded-full shadow-lg hover:scale-110 transition z-10"
+                    >
+                      <FaHeart className="text-gray-400 hover:text-red-500 transition" />
+                    </button>
+                    <div className="absolute top-3 left-3 bg-teal-700 text-white px-3 py-1 rounded-full text-xs font-semibold">
+                      {listing.type.charAt(0).toUpperCase() + listing.type.slice(1)}
+                    </div>
+                  </div>
+                  <div className="p-4" onClick={() => handleListingClick(listing._id)}>
+                    <h3 className="font-bold text-lg text-gray-900 mb-2 truncate">
+                      {listing.title}
+                    </h3>
+                    <div className="flex items-center gap-1 text-gray-600 text-sm mb-2">
+                      <FaMapMarkerAlt className="text-teal-700" />
+                      <span>{listing.location.city}</span>
+                    </div>
+                    <div className="flex items-baseline gap-1 mb-2">
+                      <FaRupeeSign className="text-teal-700 text-lg" />
+                      <span className="text-2xl font-bold text-teal-700">{listing.price}</span>
+                      <span className="text-gray-600 text-sm">/month</span>
+                    </div>
+                    <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                      <span className="text-sm text-gray-600">
+                        {listing.gender === 'any' ? 'Co-ed' : listing.gender.charAt(0).toUpperCase() + listing.gender.slice(1)}
+                      </span>
+                      <span className="text-sm font-semibold text-teal-700">
+                        {listing.occupancy.current}/{listing.occupancy.max} occupied
+                      </span>
+                    </div>
+                    <button className="w-full mt-3 bg-teal-700 text-white py-2 rounded-lg hover:bg-teal-800 transition font-medium text-sm">
+                      View Details
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-20">
+              <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <FaSearch className="text-4xl text-gray-400" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">No properties found</h3>
+              <p className="text-gray-600 mb-6">
+                Try adjusting your filters or search in a different location
+              </p>
+              <button
+                onClick={() => {
+                  setSearchData({ location: '', roomType: '', budget: '' });
+                  setFilteredListings(listings);
+                }}
+                className="bg-teal-700 text-white px-8 py-3 rounded-lg hover:bg-teal-800 transition font-semibold"
+              >
+                Clear Filters
+              </button>
+            </div>
+          )}
+
+          {filteredListings.length > 0 && (
+            <div className="text-center mt-12">
+              <button
+                onClick={() => {
+                  const token = localStorage.getItem('token');
+                  if (token) {
+                    navigate('/listings');
+                  } else {
+                    localStorage.setItem('redirectAfterLogin', '/listings');
+                    navigate('/login');
+                  }
+                }}
+                className="inline-flex items-center gap-2 bg-white text-teal-700 border-2 border-teal-700 px-8 py-3 rounded-lg font-bold hover:bg-teal-700 hover:text-white transition"
+              >
+                View All Properties
+                <FaArrowRight />
+              </button>
+            </div>
+          )}
         </div>
       </section>
 
